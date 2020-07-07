@@ -17,7 +17,7 @@ Usage:
 ```
 
 `-ext` is file extension.  
-`-t` is color theme.  
+`-t` is color theme. can use [those](https://xyproto.github.io/splash/docs/all.html) themes  
 `-o` is output image file name.  
 
 ## Requirements
