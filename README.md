@@ -2,6 +2,8 @@
 `code2img` can convert source code to image.
 This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://github.com/Aloxaf/silicon) but doesn't need browser & Internet.
 
+![](https://i.imgur.com/LaSS5Gm.gif)
+
 ## Usage
 ```sh
 $ code2img
