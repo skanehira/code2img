@@ -26,13 +26,13 @@ func main() {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() {
 		fs.SetOutput(os.Stdout)
-		fmt.Printf(`%[1]s - convert code to image
+		fmt.Printf(`%[1]s - convert source code to image
 
 Version: %s
 
 Usage:
   $ %[1]s -t monokai main.go main.png
-  $ echo 'fmt.Println("Hello World")' | %[1]s  -ext go -o sample.png -t native
+  $ echo 'fmt.Println("Hello World")' | %[1]s -ext go -t native -o sample.png
 `, name, version)
 	}
 
