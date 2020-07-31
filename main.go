@@ -1,19 +1,29 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
 	"io"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strings"
 
-	"github.com/alecthomas/chroma/quick"
+	"github.com/alecthomas/chroma"
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
+	"github.com/golang/freetype/truetype"
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
 )
 
-var version = "0.1.0"
+var version = "1.0.0"
 
 func exitErr(err error) {
 	fmt.Fprintln(os.Stderr, err)
@@ -74,43 +84,132 @@ Usage:
 		*output = args[1]
 	}
 
-	svg, err := toSVG(src, *ext, *theme)
-	if err != nil {
+	buf := &bytes.Buffer{}
+	if _, err := io.Copy(buf, src); err != nil {
 		exitErr(err)
 	}
-	defer os.Remove(svg)
+	source := buf.String()
 
-	if err := toPNG(svg, *output); err != nil {
+	w, h := getSize(source)
+
+	formatters.Register("png", &pngFormat{
+		width:  w,
+		height: h,
+	})
+
+	if err := toImg(source, *output, *ext, *theme); err != nil {
 		exitErr(err)
 	}
 }
 
-func toSVG(in io.Reader, ext, theme string) (string, error) {
-	src, err := ioutil.ReadAll(in)
-	if err != nil {
-		return "", err
+func getSize(s string) (int, int) {
+	w, h := 0, 2
+	for _, s := range strings.Split(s, "\n") {
+		ww := len(s) * 12
+		if ww > w {
+			w = ww
+		}
+		h++
 	}
-	out, err := ioutil.TempFile("", "")
-	if err != nil {
-		return "", err
-	}
-	defer out.Close()
-
-	if err := quick.Highlight(out, string(src), ext, "svg", theme); err != nil {
-		return "", err
-	}
-	return out.Name(), nil
+	return w, h * 20
 }
 
-func toPNG(src, dest string) error {
-	cmd := "rsvg-convert"
-	if _, err := exec.LookPath(cmd); err != nil {
+type pngFormat struct {
+	width, height int
+}
+
+func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Iterator) error {
+	f, err := Assets.Open("/font/Cica-Regular.ttf")
+	defer f.Close()
+
+	b := &bytes.Buffer{}
+	if _, err := io.Copy(b, f); err != nil {
 		return err
 	}
 
-	result, err := exec.Command(cmd, src, "-o", dest).Output()
+	ft, err := truetype.Parse(b.Bytes())
 	if err != nil {
-		return fmt.Errorf("%s: %s", string(result), err)
+		return err
 	}
-	return nil
+
+	opt := truetype.Options{
+		Size: 20,
+	}
+	face := truetype.NewFace(ft, &opt)
+
+	img := image.NewRGBA(image.Rect(0, 0, p.width, p.height))
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.Black}, image.ZP, draw.Src)
+
+	dr := &font.Drawer{
+		Dst:  img,
+		Src:  image.White,
+		Face: face,
+		Dot:  fixed.Point26_6{},
+	}
+
+	padding := 3
+	x := fixed.Int26_6(padding)
+	y := fixed.Int26_6(1)
+
+	for _, t := range iterator.Tokens() {
+		c := style.Get(t.Type).Colour
+		dr.Src = image.NewUniform(color.RGBA{R: c.Red(), G: c.Green(), B: c.Blue(), A: 255})
+
+		for _, c := range t.String() {
+			if c == '\n' {
+				x = fixed.Int26_6(padding)
+				y++
+				continue
+			} else if c == '\t' {
+				x += fixed.Int26_6(padding)
+				continue
+			}
+			dr.Dot.X = fixed.I(10) * x
+			dr.Dot.Y = fixed.I(20) * y
+			dr.DrawString(fmt.Sprintf("%c", c))
+
+			// if mutibyte
+			if len(string(c)) > 2 {
+				x = x + 2
+			} else {
+				x++
+			}
+		}
+	}
+
+	return png.Encode(w, img)
+}
+
+func toImg(source, out string, lexer, style string) error {
+	w, err := os.Create(out)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+
+	l := lexers.Get(lexer)
+	if l == nil {
+		l = lexers.Analyse(source)
+	}
+	if l == nil {
+		l = lexers.Fallback
+	}
+	l = chroma.Coalesce(l)
+
+	f := formatters.Get("png")
+	if f == nil {
+		f = formatters.Fallback
+	}
+
+	s := styles.Get(style)
+	if s == nil {
+		s = styles.Fallback
+	}
+
+	it, err := l.Tokenise(nil, source)
+	if err != nil {
+		return err
+	}
+
+	return f.Format(w, s, it)
 }

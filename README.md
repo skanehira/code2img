@@ -2,14 +2,14 @@
 `code2img` can convert source code to image.
 This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://github.com/Aloxaf/silicon) but doesn't need browser & Internet.
 
-![](https://i.imgur.com/LaSS5Gm.gif)
+![](https://i.imgur.com/TjoOQct.gif)
 
 ## Usage
 ```sh
 $ code2img
 code2img - convert code to image
 
-Version: 0.1.0
+Version: 1.0.0
 
 Usage:
   $ code2img -t monokai main.go main.png
@@ -19,9 +19,6 @@ Usage:
 `-ext` is file extension.  
 `-t` is color theme. can use [those](https://xyproto.github.io/splash/docs/all.html) themes  
 `-o` is output image file name.  
-
-## Requirements
-- rsvg-convert
 
 ## Installtion
 
