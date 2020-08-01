@@ -61,7 +61,7 @@ Usage:
 
 	// if use stdin, then require those argments
 	if !terminal.IsTerminal(0) {
-		if *theme == "" || *ext == "" || *output == "" {
+		if *ext == "" || *output == "" {
 			fs.Usage()
 			os.Exit(1)
 		}
@@ -103,7 +103,7 @@ Usage:
 }
 
 func getSize(s string) (int, int) {
-	w, h := 0, 2
+	w, h := 0, 0
 	for _, s := range strings.Split(s, "\n") {
 		ww := len(s) * 12
 		if ww > w {
@@ -144,7 +144,6 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 		Dst:  img,
 		Src:  image.White,
 		Face: face,
-		Dot:  fixed.Point26_6{},
 	}
 
 	padding := 3
@@ -166,10 +165,11 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 			}
 			dr.Dot.X = fixed.I(10) * x
 			dr.Dot.Y = fixed.I(20) * y
-			dr.DrawString(fmt.Sprintf("%c", c))
+			s := fmt.Sprintf("%c", c)
+			dr.DrawString(s)
 
 			// if mutibyte
-			if len(string(c)) > 2 {
+			if len(s) > 2 {
 				x = x + 2
 			} else {
 				x++
