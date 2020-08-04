@@ -155,8 +155,18 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	y := fixed.Int26_6(2)
 
 	for _, t := range iterator.Tokens() {
-		c := style.Get(t.Type).Colour
-		dr.Src = image.NewUniform(color.RGBA{R: c.Red(), G: c.Green(), B: c.Blue(), A: 255})
+		s := style.Get(t.Type)
+		if s.Colour.IsSet() {
+			c := s.Colour
+			dr.Src = image.NewUniform(color.RGBA{R: c.Red(), G: c.Green(), B: c.Blue(), A: 255})
+		} else {
+			c := s.Colour
+			if c.Brightness() < 0.5 {
+				dr.Src = image.NewUniform(color.White)
+			} else {
+				dr.Src = image.NewUniform(color.Black)
+			}
+		}
 
 		for _, c := range t.String() {
 			if c == '\n' {
