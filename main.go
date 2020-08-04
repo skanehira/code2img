@@ -138,8 +138,11 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	}
 	face := truetype.NewFace(ft, &opt)
 
+	bg := style.Get(chroma.Background).Background
+	bgColor := color.RGBA{R: bg.Red(), G: bg.Green(), B: bg.Blue(), A: 255}
+
 	img := image.NewRGBA(image.Rect(0, 0, p.width, p.height))
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.Black}, image.ZP, draw.Src)
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: bgColor}, image.ZP, draw.Src)
 
 	dr := &font.Drawer{
 		Dst:  img,
