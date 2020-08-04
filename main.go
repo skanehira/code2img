@@ -111,6 +111,7 @@ func getSize(s string) (int, int) {
 		}
 		h++
 	}
+	h = h + 2
 	return w, h * 20
 }
 
@@ -146,9 +147,9 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 		Face: face,
 	}
 
-	padding := 3
+	padding := 2
 	x := fixed.Int26_6(padding)
-	y := fixed.Int26_6(1)
+	y := fixed.Int26_6(2)
 
 	for _, t := range iterator.Tokens() {
 		c := style.Get(t.Type).Colour
