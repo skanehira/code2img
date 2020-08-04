@@ -18,9 +18,9 @@ import (
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/golang/freetype/truetype"
-	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/term"
 )
 
 var version = "1.0.0"
@@ -60,7 +60,7 @@ Usage:
 	var src io.Reader
 
 	// if use stdin, then require those argments
-	if !terminal.IsTerminal(0) {
+	if !term.IsTerminal(0) {
 		if *ext == "" || *output == "" {
 			fs.Usage()
 			os.Exit(1)
