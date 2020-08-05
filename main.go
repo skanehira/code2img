@@ -39,20 +39,26 @@ func main() {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() {
 		fs.SetOutput(os.Stdout)
-		fmt.Printf(`%[1]s - convert source code to image
+		fmt.Printf(`%[1]s - generate image of source code
 
 Version: %s
 
 Usage:
   $ %[1]s -t monokai main.go main.png
   $ echo 'fmt.Println("Hello World")' | %[1]s -ext go -t native -o sample.png
+  $ %[1]s -c main.go
+
+  -t	color theme(default: solarized-dark)
+  -o	output file name(default: out.png)
+  -c	copy to clipboard
+  -ext	file extension
 `, name, version)
 	}
 
-	theme := fs.String("t", "monokai", "color theme")
-	ext := fs.String("ext", "", "file extension")
-	output := fs.String("o", "out.png", "output image file")
-	useClipboard := fs.Bool("c", false, "copy to clipboard")
+	theme := fs.String("t", "solarized-dark", "")
+	ext := fs.String("ext", "", "")
+	output := fs.String("o", "out.png", "")
+	useClipboard := fs.Bool("c", false, "")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
