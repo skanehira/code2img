@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,12 +201,23 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	return png.Encode(w, img)
 }
 
-func toImg(useClipboard bool, source, out string, lexer, style string) error {
-	w, err := os.Create(out)
-	if err != nil {
-		return err
+func toImg(useClipboard bool, source, outFile string, lexer, style string) error {
+	var (
+		out *os.File
+		err error
+	)
+	if useClipboard {
+		out, err = ioutil.TempFile("", "")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(out.Name())
+	} else {
+		out, err = os.Create(outFile)
+		if err != nil {
+			return err
+		}
 	}
-	defer w.Close()
 
 	l := lexers.Get(lexer)
 	if l == nil {
@@ -232,28 +244,34 @@ func toImg(useClipboard bool, source, out string, lexer, style string) error {
 	}
 
 	if !useClipboard {
-		return f.Format(w, s, it)
+		return f.Format(out, s, it)
 	}
 
-	if err := f.Format(w, s, it); err != nil {
+	if err := f.Format(out, s, it); err != nil {
 		return err
 	}
 
-	return toClipboard(w)
+	out.Close()
+
+	return toClipboard(outFile)
 }
 
-func toClipboard(file *os.File) error {
-	defer os.Remove(file.Name())
-
+func toClipboard(file string) error {
 	switch runtime.GOOS {
 	case "darwin":
-		cmd := exec.Command("osascript", "-e", fmt.Sprintf("set the clipboard to (read \"%s\" as TIFF picture)", file.Name()))
+		cmd := exec.Command("osascript", "-e", fmt.Sprintf("set the clipboard to (read \"%s\" as TIFF picture)", file))
 		b, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("%s: %s", err, string(b))
 		}
 		return nil
 	case "linux":
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
 		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", "image/png")
 		in, err := cmd.StdinPipe()
 		if err != nil {
@@ -264,7 +282,7 @@ func toClipboard(file *os.File) error {
 			return err
 		}
 
-		if _, err := io.Copy(in, file); err != nil {
+		if _, err := io.Copy(in, f); err != nil {
 			return err
 		}
 
