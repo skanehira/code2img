@@ -10,7 +10,9 @@ import (
 	"image/png"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/alecthomas/chroma"
@@ -23,7 +25,7 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "1.0.0"
+var version = "1.1.0"
 
 func exitErr(err error) {
 	fmt.Fprintln(os.Stderr, err)
@@ -48,7 +50,8 @@ Usage:
 
 	theme := fs.String("t", "monokai", "color theme")
 	ext := fs.String("ext", "", "file extension")
-	output := fs.String("o", "", "output image file")
+	output := fs.String("o", "out.png", "output image file")
+	useClipboard := fs.Bool("c", false, "copy to clipboard")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
@@ -61,17 +64,18 @@ Usage:
 
 	// if use stdin, then require those argments
 	if !term.IsTerminal(0) {
-		if *ext == "" || *output == "" {
+		if *ext == "" {
 			fs.Usage()
 			os.Exit(1)
 		}
 		src = os.Stdin
 	} else {
 		args := fs.Args()
-		if len(args) < 2 {
+		if len(args) < 1 {
 			fs.Usage()
 			os.Exit(1)
 		}
+
 		in := args[0]
 		*ext = filepath.Ext(in)[1:]
 
@@ -80,8 +84,11 @@ Usage:
 		if err != nil {
 			exitErr(err)
 		}
+		*ext = filepath.Ext(args[0])[1:]
 
-		*output = args[1]
+		if !*useClipboard && len(args) > 1 {
+			*output = args[1]
+		}
 	}
 
 	buf := &bytes.Buffer{}
@@ -91,13 +98,12 @@ Usage:
 	source := buf.String()
 
 	w, h := getSize(source)
-
 	formatters.Register("png", &pngFormat{
 		width:  w,
 		height: h,
 	})
 
-	if err := toImg(source, *output, *ext, *theme); err != nil {
+	if err := toImg(*useClipboard, source, *output, *ext, *theme); err != nil {
 		exitErr(err)
 	}
 }
@@ -194,7 +200,7 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	return png.Encode(w, img)
 }
 
-func toImg(source, out string, lexer, style string) error {
+func toImg(useClipboard bool, source, out string, lexer, style string) error {
 	w, err := os.Create(out)
 	if err != nil {
 		return err
@@ -225,5 +231,34 @@ func toImg(source, out string, lexer, style string) error {
 		return err
 	}
 
-	return f.Format(w, s, it)
+	if !useClipboard {
+		return f.Format(w, s, it)
+	}
+
+	if err := f.Format(w, s, it); err != nil {
+		return err
+	}
+	return toClipboard(w, out)
+}
+
+func toClipboard(w io.Writer, filename string) error {
+	defer os.Remove(filename)
+
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("osascript", "-e", fmt.Sprintf("set the clipboard to (read \"%s\" as TIFF picture)", filename))
+	case "linux":
+		cmd = exec.Command("xclip", "-i", "-selection", "clipboard", "-t", "image/png", "<", filename)
+	default:
+		return fmt.Errorf("unsupported os: %s", runtime.GOOS)
+	}
+
+	b, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s", err, string(b))
+	}
+
+	return nil
 }
