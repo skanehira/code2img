@@ -1,8 +1,14 @@
 # code2img
-`code2img` can convert source code to image.
-This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://github.com/Aloxaf/silicon) but doesn't need browser & Internet.
+`code2img` can generate image of source code.
+This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://github.com/Aloxaf/silicon)
 
 ![](https://i.imgur.com/TjoOQct.gif)
+
+## Features
+-  Doesn't need browser & Internet
+-  Copy image of source code to clipboard
+-  Supported [some](https://github.com/alecthomas/chroma#supported-languages) color schemes
+-  Supported [some](https://xyproto.github.io/splash/docs/all.html) languages
 
 ## Usage
 ```sh
@@ -21,6 +27,9 @@ Usage:
   -c    copy to clipboard
   -ext  file extension
 ```
+
+## Requirements
+- `xclip` (if copy image to clipboard in linux)
 
 ## Installtion
 
