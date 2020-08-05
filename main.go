@@ -64,7 +64,7 @@ Usage:
 	var src io.Reader
 
 	// if use stdin, then require those argments
-	if !term.IsTerminal(0) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		if *ext == "" {
 			fs.Usage()
 			os.Exit(1)
@@ -253,7 +253,7 @@ func toImg(useClipboard bool, source, outFile string, lexer, style string) error
 
 	out.Close()
 
-	return toClipboard(outFile)
+	return toClipboard(out.Name())
 }
 
 func toClipboard(file string) error {
@@ -291,6 +291,13 @@ func toClipboard(file string) error {
 		}
 
 		return cmd.Wait()
+	case "windows":
+		cmd := exec.Command("PowerShell", "-Command", "Add-Type", "-AssemblyName", fmt.Sprintf("System.Windows.Forms;[Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('%s'));", file))
+		b, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: %s", err, string(b))
+		}
+		return nil
 	}
 
 	return fmt.Errorf("unsupported os: %s", runtime.GOOS)
