@@ -272,7 +272,13 @@ func toClipboard(file string) error {
 		}
 		defer f.Close()
 
-		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", "image/png")
+		b, err := exec.Command("file", "-b", "--mime-type", file).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: %s", err, string(b))
+		}
+
+		// b has new line
+		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", string(b[:len(b)-1]))
 		in, err := cmd.StdinPipe()
 		if err != nil {
 			return err
