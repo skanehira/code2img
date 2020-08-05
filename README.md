@@ -7,18 +7,20 @@ This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://gith
 ## Usage
 ```sh
 $ code2img
-code2img - convert code to image
+code2img - generate image of source code
 
-Version: 1.0.0
+Version: 1.1.0
 
 Usage:
   $ code2img -t monokai main.go main.png
   $ echo 'fmt.Println("Hello World")' | code2img -ext go -t native -o sample.png
-```
+  $ code2img -c main.go
 
-`-ext` is file extension.  
-`-t` is color theme. can use [those](https://xyproto.github.io/splash/docs/all.html) themes  
-`-o` is output image file name.  
+  -t    color theme(default: solarized-dark)
+  -o    output file name(default: out.png)
+  -c    copy to clipboard
+  -ext  file extension
+```
 
 ## Installtion
 
