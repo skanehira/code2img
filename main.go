@@ -238,27 +238,42 @@ func toImg(useClipboard bool, source, out string, lexer, style string) error {
 	if err := f.Format(w, s, it); err != nil {
 		return err
 	}
-	return toClipboard(w, out)
+
+	return toClipboard(w)
 }
 
-func toClipboard(w io.Writer, filename string) error {
-	defer os.Remove(filename)
-
-	var cmd *exec.Cmd
+func toClipboard(file *os.File) error {
+	defer os.Remove(file.Name())
 
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("osascript", "-e", fmt.Sprintf("set the clipboard to (read \"%s\" as TIFF picture)", filename))
+		cmd := exec.Command("osascript", "-e", fmt.Sprintf("set the clipboard to (read \"%s\" as TIFF picture)", file.Name()))
+		b, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: %s", err, string(b))
+		}
+		return nil
 	case "linux":
-		cmd = exec.Command("xclip", "-i", "-selection", "clipboard", "-t", "image/png", "<", filename)
-	default:
-		return fmt.Errorf("unsupported os: %s", runtime.GOOS)
+		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", "image/png")
+		in, err := cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+
+		if _, err := io.Copy(in, file); err != nil {
+			return err
+		}
+
+		if err := in.Close(); err != nil {
+			return err
+		}
+
+		return cmd.Wait()
 	}
 
-	b, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(b))
-	}
-
-	return nil
+	return fmt.Errorf("unsupported os: %s", runtime.GOOS)
 }
