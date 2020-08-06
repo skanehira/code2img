@@ -11,9 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/alecthomas/chroma"
@@ -21,6 +19,7 @@ import (
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/golang/freetype/truetype"
+	"github.com/skanehira/clipboard-image"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/term"
@@ -208,23 +207,6 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 }
 
 func toImg(useClipboard bool, source, outFile string, lexer, style string) error {
-	var (
-		out *os.File
-		err error
-	)
-	if useClipboard {
-		out, err = ioutil.TempFile("", "")
-		if err != nil {
-			return err
-		}
-		defer os.Remove(out.Name())
-	} else {
-		out, err = os.Create(outFile)
-		if err != nil {
-			return err
-		}
-	}
-
 	l := lexers.Get(lexer)
 	if l == nil {
 		l = lexers.Analyse(source)
@@ -249,68 +231,25 @@ func toImg(useClipboard bool, source, outFile string, lexer, style string) error
 		return err
 	}
 
-	if !useClipboard {
-		return f.Format(out, s, it)
-	}
+	buf := new(bytes.Buffer)
 
-	if err := f.Format(out, s, it); err != nil {
+	if err := f.Format(buf, s, it); err != nil {
 		return err
 	}
 
-	out.Close()
-
-	return toClipboard(out.Name())
-}
-
-func toClipboard(file string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		cmd := exec.Command("osascript", "-e", fmt.Sprintf("set the clipboard to (read \"%s\" as TIFF picture)", file))
-		b, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%s: %s", err, string(b))
-		}
-		return nil
-	case "linux":
-		f, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		b, err := exec.Command("file", "-b", "--mime-type", file).CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%s: %s", err, string(b))
-		}
-
-		// b has new line
-		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", string(b[:len(b)-1]))
-		in, err := cmd.StdinPipe()
-		if err != nil {
-			return err
-		}
-
-		if err := cmd.Start(); err != nil {
-			return err
-		}
-
-		if _, err := io.Copy(in, f); err != nil {
-			return err
-		}
-
-		if err := in.Close(); err != nil {
-			return err
-		}
-
-		return cmd.Wait()
-	case "windows":
-		cmd := exec.Command("PowerShell", "-Command", "Add-Type", "-AssemblyName", fmt.Sprintf("System.Windows.Forms;[Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('%s'));", file))
-		b, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%s: %s", err, string(b))
-		}
-		return nil
+	if useClipboard {
+		return clipboard.CopyToClipboard(buf)
 	}
 
-	return fmt.Errorf("unsupported os: %s", runtime.GOOS)
+	tmp, err := ioutil.TempFile("", "")
+	if err != nil {
+		return err
+	}
+	defer tmp.Close()
+
+	if _, err := io.Copy(tmp, buf); err != nil {
+		return err
+	}
+
+	return os.Rename(tmp.Name(), outFile)
 }
