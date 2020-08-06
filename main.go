@@ -245,11 +245,11 @@ func toImg(useClipboard bool, source, outFile string, lexer, style string) error
 	if err != nil {
 		return err
 	}
-	defer tmp.Close()
 
 	if _, err := io.Copy(tmp, buf); err != nil {
 		return err
 	}
 
+	tmp.Close()
 	return os.Rename(tmp.Name(), outFile)
 }
