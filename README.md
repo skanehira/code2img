@@ -7,8 +7,8 @@ This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://gith
 ## Features
 -  Doesn't need browser & Internet
 -  Copy image of source code to clipboard
--  Supported [some](https://github.com/alecthomas/chroma#supported-languages) color schemes
--  Supported [some](https://xyproto.github.io/splash/docs/all.html) languages
+-  Supported [some](https://xyproto.github.io/splash/docs/all.html) color schemes
+-  Supported [some](https://github.com/alecthomas/chroma#supported-languages) languages
 
 ## Usage
 ```sh
