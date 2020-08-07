@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/alecthomas/chroma"
@@ -25,11 +26,19 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "1.1.0"
+var version = "1.2.0"
 
 func exitErr(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+type options struct {
+	useClipboard bool
+	source       string
+	output       string
+	ext          string
+	theme        string
 }
 
 func main() {
@@ -50,6 +59,7 @@ Usage:
   -t	color theme(default: solarized-dark)
   -o	output file name(default: out.png)
   -c	copy to clipboard
+  -l	print line
   -ext	file extension
 `, name, version)
 	}
@@ -58,6 +68,7 @@ Usage:
 	ext := fs.String("ext", "", "")
 	output := fs.String("o", "out.png", "")
 	useClipboard := fs.Bool("c", false, "")
+	printLine := fs.Bool("l", false, "")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
@@ -103,32 +114,52 @@ Usage:
 	}
 	source := buf.String()
 
-	w, h := getSize(source)
+	fontSize := 20
+	w, h, lw := getSize(*printLine, source, fontSize)
 	formatters.Register("png", &pngFormat{
-		width:  w,
-		height: h,
+		width:     w,
+		height:    h,
+		lineWidth: lw,
+		fontSize:  fontSize,
+		printLine: *printLine,
 	})
 
-	if err := toImg(*useClipboard, source, *output, *ext, *theme); err != nil {
+	opts := options{
+		useClipboard: *useClipboard,
+		source:       source,
+		output:       *output,
+		ext:          *ext,
+		theme:        *theme,
+	}
+	if err := toImg(opts); err != nil {
 		exitErr(err)
 	}
 }
 
-func getSize(s string) (int, int) {
-	w, h := 0, 0
-	for _, s := range strings.Split(s, "\n") {
-		ww := len(s) * 12
+func getSize(printLine bool, s string, fontSize int) (w int, h int, lw int) {
+	lines := strings.Split(s, "\n")
+	ws := 12
+	for _, s := range lines {
+		ww := len(s) * ws
 		if ww > w {
 			w = ww
 		}
 		h++
 	}
 	h = h + 2
-	return w, h * 20
+
+	if printLine {
+		lw = len(strconv.Itoa(len(lines)))
+		w = w + lw*ws
+	}
+	return w, h * fontSize, lw
 }
 
 type pngFormat struct {
+	fontSize      int
 	width, height int
+	lineWidth     int
+	printLine     bool
 }
 
 func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Iterator) error {
@@ -146,7 +177,7 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	}
 
 	opt := truetype.Options{
-		Size: 20,
+		Size: float64(p.fontSize),
 	}
 	face := truetype.NewFace(ft, &opt)
 
@@ -162,9 +193,33 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 		Face: face,
 	}
 
+	// width, height padding
 	padding := 2
-	x := fixed.Int26_6(padding)
-	y := fixed.Int26_6(2)
+
+	// draw line
+	if p.printLine {
+		i := 1
+		if bg.Brightness() < 0.5 {
+			dr.Src = image.NewUniform(color.White)
+		} else {
+			dr.Src = image.NewUniform(color.Black)
+		}
+
+		lx := fixed.Int26_6(padding)
+
+		lm := p.height/p.fontSize - 2 // remove font size
+		for i < lm {
+			dr.Dot.X = fixed.I(10) * lx
+			dr.Dot.Y = fixed.I(p.fontSize) * fixed.Int26_6(i+1)
+			dr.DrawString(strconv.Itoa(i))
+			i++
+		}
+	}
+
+	// draw source code
+	ox := fixed.Int26_6(p.lineWidth + 3)
+	x := ox
+	y := fixed.Int26_6(padding)
 
 	for _, t := range iterator.Tokens() {
 		s := style.Get(t.Type)
@@ -182,15 +237,15 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 
 		for _, c := range t.String() {
 			if c == '\n' {
-				x = fixed.Int26_6(padding)
+				x = ox
 				y++
 				continue
 			} else if c == '\t' {
-				x += fixed.Int26_6(padding)
+				x += fixed.Int26_6(4)
 				continue
 			}
 			dr.Dot.X = fixed.I(10) * x
-			dr.Dot.Y = fixed.I(20) * y
+			dr.Dot.Y = fixed.I(p.fontSize) * y
 			s := fmt.Sprintf("%c", c)
 			dr.DrawString(s)
 
@@ -206,10 +261,10 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	return png.Encode(w, img)
 }
 
-func toImg(useClipboard bool, source, outFile string, lexer, style string) error {
-	l := lexers.Get(lexer)
+func toImg(opt options) error {
+	l := lexers.Get(opt.ext)
 	if l == nil {
-		l = lexers.Analyse(source)
+		l = lexers.Analyse(opt.source)
 	}
 	if l == nil {
 		l = lexers.Fallback
@@ -221,12 +276,12 @@ func toImg(useClipboard bool, source, outFile string, lexer, style string) error
 		f = formatters.Fallback
 	}
 
-	s := styles.Get(style)
+	s := styles.Get(opt.theme)
 	if s == nil {
 		s = styles.Fallback
 	}
 
-	it, err := l.Tokenise(nil, source)
+	it, err := l.Tokenise(nil, opt.source)
 	if err != nil {
 		return err
 	}
@@ -237,7 +292,7 @@ func toImg(useClipboard bool, source, outFile string, lexer, style string) error
 		return err
 	}
 
-	if useClipboard {
+	if opt.useClipboard {
 		return clipboard.CopyToClipboard(buf)
 	}
 
@@ -249,7 +304,7 @@ func toImg(useClipboard bool, source, outFile string, lexer, style string) error
 	if _, err := io.Copy(tmp, buf); err != nil {
 		return err
 	}
-
 	tmp.Close()
-	return os.Rename(tmp.Name(), outFile)
+
+	return os.Rename(tmp.Name(), opt.output)
 }
