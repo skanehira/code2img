@@ -208,10 +208,11 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 		lx := fixed.Int26_6(padding)
 
 		lm := p.height/p.fontSize - 2 // remove font size
+		format := fmt.Sprintf("%%%dd", p.lineWidth)
 		for i < lm {
 			dr.Dot.X = fixed.I(10) * lx
 			dr.Dot.Y = fixed.I(p.fontSize) * fixed.Int26_6(i+1)
-			dr.DrawString(strconv.Itoa(i))
+			dr.DrawString(fmt.Sprintf(format, i))
 			i++
 		}
 	}
