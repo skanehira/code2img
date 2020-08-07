@@ -25,6 +25,7 @@ Usage:
   -t    color theme(default: solarized-dark)
   -o    output file name(default: out.png)
   -c    copy to clipboard
+  -l    print line
   -ext  file extension
 ```
 
