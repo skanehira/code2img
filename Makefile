@@ -33,7 +33,7 @@ $(GOBIN)/goxz:
 
 .PHONY: test
 test: build
-	go test -v ./...
+	bash test.sh
 
 .PHONY: lint
 lint: $(GOBIN)/golint
