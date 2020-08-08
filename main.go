@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
 	"io"
 	"io/ioutil"
 	"os"
@@ -19,10 +15,7 @@ import (
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-	"github.com/golang/freetype/truetype"
 	"github.com/skanehira/clipboard-image"
-	"golang.org/x/image/font"
-	"golang.org/x/image/math/fixed"
 	"golang.org/x/term"
 )
 
@@ -131,137 +124,35 @@ Usage:
 		ext:          *ext,
 		theme:        *theme,
 	}
-	if err := toImg(opts); err != nil {
+	if err := drawImage(opts); err != nil {
 		exitErr(err)
 	}
 }
 
-func getSize(printLine bool, s string, fontSize int) (w int, h int, lw int) {
-	lines := strings.Split(s, "\n")
-	ws := 12
-	for _, s := range lines {
-		ww := len(s) * ws
-		if ww > w {
-			w = ww
-		}
-		h++
-	}
-	h = h + 2
-
-	if printLine {
-		lw = len(strconv.Itoa(len(lines)))
-		w = w + lw*ws
-	}
-	return w, h * fontSize, lw
-}
-
-type pngFormat struct {
-	fontSize      int
-	width, height int
-	lineWidth     int
-	printLine     bool
-}
-
-func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Iterator) error {
-	f, err := Assets.Open("/font/Cica-Regular.ttf")
-	defer f.Close()
-
-	b := &bytes.Buffer{}
-	if _, err := io.Copy(b, f); err != nil {
-		return err
-	}
-
-	ft, err := truetype.Parse(b.Bytes())
+func drawImage(opt options) error {
+	buf, err := highlight(opt)
 	if err != nil {
 		return err
 	}
 
-	opt := truetype.Options{
-		Size: float64(p.fontSize),
-	}
-	face := truetype.NewFace(ft, &opt)
-
-	bg := style.Get(chroma.Background).Background
-	bgColor := color.RGBA{R: bg.Red(), G: bg.Green(), B: bg.Blue(), A: 255}
-
-	img := image.NewRGBA(image.Rect(0, 0, p.width, p.height))
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: bgColor}, image.ZP, draw.Src)
-
-	dr := &font.Drawer{
-		Dst:  img,
-		Src:  image.White,
-		Face: face,
+	if opt.useClipboard {
+		return clipboard.CopyToClipboard(buf)
 	}
 
-	// width, height padding
-	padding := 2
-
-	// draw line
-	if p.printLine {
-		i := 1
-		if bg.Brightness() < 0.5 {
-			dr.Src = image.NewUniform(color.White)
-		} else {
-			dr.Src = image.NewUniform(color.Black)
-		}
-
-		lx := fixed.Int26_6(padding)
-
-		lm := p.height/p.fontSize - 2 // remove font size
-		for i < lm {
-			dr.Dot.X = fixed.I(10) * lx
-			dr.Dot.Y = fixed.I(p.fontSize) * fixed.Int26_6(i+1)
-			dr.DrawString(strconv.Itoa(i))
-			i++
-		}
+	tmp, err := ioutil.TempFile("", "")
+	if err != nil {
+		return err
 	}
 
-	// draw source code
-	ox := fixed.Int26_6(p.lineWidth + 3)
-	x := ox
-	y := fixed.Int26_6(padding)
-
-	for _, t := range iterator.Tokens() {
-		s := style.Get(t.Type)
-		if s.Colour.IsSet() {
-			c := s.Colour
-			dr.Src = image.NewUniform(color.RGBA{R: c.Red(), G: c.Green(), B: c.Blue(), A: 255})
-		} else {
-			c := s.Colour
-			if c.Brightness() < 0.5 {
-				dr.Src = image.NewUniform(color.White)
-			} else {
-				dr.Src = image.NewUniform(color.Black)
-			}
-		}
-
-		for _, c := range t.String() {
-			if c == '\n' {
-				x = ox
-				y++
-				continue
-			} else if c == '\t' {
-				x += fixed.Int26_6(4)
-				continue
-			}
-			dr.Dot.X = fixed.I(10) * x
-			dr.Dot.Y = fixed.I(p.fontSize) * y
-			s := fmt.Sprintf("%c", c)
-			dr.DrawString(s)
-
-			// if mutibyte
-			if len(s) > 2 {
-				x = x + 2
-			} else {
-				x++
-			}
-		}
+	if _, err := io.Copy(tmp, buf); err != nil {
+		return err
 	}
+	tmp.Close()
 
-	return png.Encode(w, img)
+	return os.Rename(tmp.Name(), opt.output)
 }
 
-func toImg(opt options) error {
+func highlight(opt options) (io.Reader, error) {
 	l := lexers.Get(opt.ext)
 	if l == nil {
 		l = lexers.Analyse(opt.source)
@@ -283,28 +174,31 @@ func toImg(opt options) error {
 
 	it, err := l.Tokenise(nil, opt.source)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	buf := new(bytes.Buffer)
-
 	if err := f.Format(buf, s, it); err != nil {
-		return err
+		return nil, err
 	}
+	return buf, nil
+}
 
-	if opt.useClipboard {
-		return clipboard.CopyToClipboard(buf)
+func getSize(printLine bool, s string, fontSize int) (w int, h int, lw int) {
+	lines := strings.Split(s, "\n")
+	ws := 12
+	for _, s := range lines {
+		ww := len(s) * ws
+		if ww > w {
+			w = ww
+		}
+		h++
 	}
+	h = h + 2
 
-	tmp, err := ioutil.TempFile("", "")
-	if err != nil {
-		return err
+	if printLine {
+		lw = len(strconv.Itoa(len(lines)))
+		w = w + lw*ws
 	}
-
-	if _, err := io.Copy(tmp, buf); err != nil {
-		return err
-	}
-	tmp.Close()
-
-	return os.Rename(tmp.Name(), opt.output)
+	return w, h * fontSize, lw
 }
