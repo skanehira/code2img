@@ -45,7 +45,7 @@ $(GOBIN)/golint:
 
 .PHONY: clean
 clean:
-	rm -rf $(BIN) goxz
+	rm -rf $(BIN) goxz tmp
 	go clean
 
 .PHONY: bump
