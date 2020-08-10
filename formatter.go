@@ -53,9 +53,6 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 		Face: face,
 	}
 
-	// width, height padding
-	padding := 2
-
 	// draw line
 	if p.printLine {
 		i := 1
@@ -65,9 +62,9 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 			dr.Src = image.NewUniform(color.Black)
 		}
 
-		lx := fixed.Int26_6(padding)
+		lx := fixed.Int26_6(2)
 
-		lm := p.height/p.fontSize - 2 // remove font size
+		lm := p.height/p.fontSize - 1 // remove font size
 		format := fmt.Sprintf("%%%dd", p.lineWidth)
 		for i < lm {
 			dr.Dot.X = fixed.I(10) * lx
@@ -80,7 +77,7 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	// draw source code
 	ox := fixed.Int26_6(p.lineWidth + 3)
 	x := ox
-	y := fixed.Int26_6(padding)
+	y := fixed.Int26_6(2)
 
 	for _, t := range iterator.Tokens() {
 		s := style.Get(t.Type)

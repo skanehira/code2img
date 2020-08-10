@@ -194,7 +194,7 @@ func getSize(printLine bool, s string, fontSize int) (w int, h int, lw int) {
 		}
 		h++
 	}
-	h = h + 2
+	h = h + 1
 
 	if printLine {
 		lw = len(strconv.Itoa(len(lines)))
