@@ -57,9 +57,9 @@ func (p *pngFormat) Format(w io.Writer, style *chroma.Style, iterator chroma.Ite
 	if p.printLine {
 		i := 1
 		if bg.Brightness() < 0.5 {
-			dr.Src = image.NewUniform(color.White)
+			dr.Src = image.NewUniform(color.RGBA{200, 200, 200, 200})
 		} else {
-			dr.Src = image.NewUniform(color.Black)
+			dr.Src = image.NewUniform(color.RGBA{50, 50, 50, 255})
 		}
 
 		lx := fixed.Int26_6(2)
