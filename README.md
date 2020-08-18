@@ -15,7 +15,7 @@ This was inspired by [carbon](https://carbon.now.sh/) and [silicon](https://gith
 $ code2img
 code2img - generate image of source code
 
-Version: 1.1.0
+Version: 1.2.0
 
 Usage:
   $ code2img -t monokai main.go main.png
