@@ -186,20 +186,17 @@ func highlight(opt options) (io.Reader, error) {
 
 func getSize(printLine bool, s string, fontSize int) (w int, h int, lw int) {
 	lines := strings.Split(s, "\n")
-	ws := 13
 	for _, s := range lines {
-		l := len(s) + strings.Count(s, "\t")*3
-		ww := l * ws
+		ww := len(s) + strings.Count(s, "\t")*3
 		if ww > w {
 			w = ww
 		}
 		h++
 	}
-	h = h + 1
 
 	if printLine {
 		lw = len(strconv.Itoa(len(lines)))
-		w = w + lw*ws
+		w = w + lw
 	}
-	return w, h * fontSize, lw
+	return (w + 6) * 10, (h + 1) * fontSize, lw
 }
