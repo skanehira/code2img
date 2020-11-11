@@ -15,7 +15,7 @@ import (
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-	"github.com/skanehira/clipboard-image"
+	"github.com/skanehira/clipboard-image/v2"
 	"golang.org/x/term"
 )
 
@@ -136,7 +136,7 @@ func drawImage(opt options) error {
 	}
 
 	if opt.useClipboard {
-		return clipboard.CopyToClipboard(buf)
+		return clipboard.Write(buf)
 	}
 
 	tmp, err := ioutil.TempFile("", "")
